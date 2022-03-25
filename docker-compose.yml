@@ -100,7 +100,8 @@ services:
             AUTH_API_USER: zdmp-portal
             AUTH_API_PASSWORD: zdmp-portal-2020
             DATABASE: portaldb
-            FRONTEND: http://localhost:4200
+            # FRONTEND: http://localhost:4200
+            FRONTEND: http://65.108.81.72:4200
         ports:
             - 5100:5100
         depends_on:
@@ -111,7 +112,8 @@ services:
         container_name: portal-ui
         image: gitlabregistry-zdmp.platform.zdmp.eu/enterprise-tier/t6.4-portal/front:1.2.30
         environment:
-            API_ENDPOINT: http://localhost:5100
+            # API_ENDPOINT: http://localhost:5100
+            API_ENDPOINT: http://65.108.81.72:5100
         ports:
             - 4200:80
         depends_on:
