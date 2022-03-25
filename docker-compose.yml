@@ -14,7 +14,7 @@ services:
         volumes:
             - portal:/data/db
         ports:
-            - 27017:27017
+            - 27018:27017
 
     # postgres BD for keycloak data
     postgres:
@@ -84,7 +84,7 @@ services:
             LOGIN_CLI-PASSWORD: _Ax_TH20
             KEYCLOAK_PRINCIPAL-ATTRIBUTE: preferred_username
         ports:
-            - 5000:5000
+            - 7777:5000
         depends_on:
             - keycloak
 
