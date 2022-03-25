@@ -1,0 +1,118 @@
+version: '3'
+
+volumes:
+    portal:
+    postgres_data:
+        driver: local
+
+services:
+
+    # portal DB
+    portaldb:
+        container_name: portaldb
+        image: gitlabregistry-zdmp.platform.zdmp.eu/enterprise-tier/t6.4-portal/db:1.2.8
+        volumes:
+            - portal:/data/db
+        ports:
+            - 27017:27017
+
+    # postgres BD for keycloak data
+    postgres:
+        container_name: keycloak-db
+        image: gitlabregistry-zdmp.platform.zdmp.eu/enterprise-tier/t5.2-secure-authentication-and-authorization:auth-db-M30
+        #build: ../subsystems/auth-db
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+        environment:
+            POSTGRES_DB: keycloak
+            POSTGRES_USER: keycloak
+            POSTGRES_PASSWORD: password
+        ports:
+            - 5001:5432
+
+    # Identity and Access Management Service
+    keycloak:
+        container_name: keycloak-api
+        #build: ../subsystems/auth
+        image: gitlabregistry-zdmp.platform.zdmp.eu/enterprise-tier/t5.2-secure-authentication-and-authorization:auth-M30.1
+        #volumes:
+        #  - "../subsystems/auth/themes/custom:/opt/jboss/keycloak/themes/"
+        command:
+            [
+                '-b',
+                '0.0.0.0',
+                '-Dkeycloak.profile.feature.upload_scripts=enabled',
+            ]
+        environment:
+            DB_VENDOR: POSTGRES
+            DB_ADDR: postgres
+            DB_DATABASE: keycloak
+            DB_USER: keycloak
+            DB_SCHEMA: public
+            DB_PASSWORD: password
+            KEYCLOAK_USER: admin
+            KEYCLOAK_PASSWORD: Pa55w0rd
+            KEYCLOAK_LOGLEVEL: INFO
+            ROOT_LOGLEVEL: INFO
+            PROXY_ADDRESS_FORWARDING: 'true'
+            KEYCLOAK_WELCOME_THEME: ikerlan-red
+            KEYCLOAK_LOGIN_THEME: ikerlan-red
+            #Supported log levels are ALL, DEBUG, ERROR, FATAL, INFO, OFF, TRACE and WARN
+
+            #Keycloak image can collect some statistics for various subsystem which will then be available in the management console and the /metrics endpoint.
+            #you should see the metrics values changing on the /metrics endpoint for the management endpoint.
+            #KEYCLOAK_STATISTICS: all
+            # Uncomment the line below if you want to specify JDBC parameters. The parameter below is just an example, and it shouldn't be used in production without knowledge. It is highly recommended that you read the PostgreSQL JDBC driver documentation in order to use it.
+            #JDBC_PARAMS: "ssl=true"
+        ports:
+            - 8080:8080
+            - 9990:9990
+            - 8443:8443
+            #  - 443:443
+
+        depends_on:
+            - postgres
+
+    auth-api:
+        container_name: auth-api
+        image: gitlabregistry-zdmp.platform.zdmp.eu/enterprise-tier/t5.2-secure-authentication-and-authorization:auth-api-M30.1
+        environment:
+            KEYCLOAK_AUTH-SERVER-URL: http://keycloak:8080/auth
+            KEYCLOAK_CREDENTIALS_SECRET: 1ae9446b-548a-47c0-adb1-e2af4a49c923
+            ADMIN-CLI: admin-cli
+            LOGIN_CLI-USERNAME: zdmp-auth-api
+            LOGIN_CLI-PASSWORD: _Ax_TH20
+            KEYCLOAK_PRINCIPAL-ATTRIBUTE: preferred_username
+        ports:
+            - 5000:5000
+        depends_on:
+            - keycloak
+
+
+    # Portal NodeJS API
+    portal-api:
+        container_name: portal-api
+        image: gitlabregistry-zdmp.platform.zdmp.eu/enterprise-tier/t6.4-portal/api:1.2.14
+        environment:
+            AUTH_TOKEN_API: http://keycloak:8080/auth
+            AUTH_API: http://auth-api:5000
+            AUTH_API_CLIENT_ID: admin-cli
+            AUTH_API_USER: zdmp-portal
+            AUTH_API_PASSWORD: zdmp-portal-2020
+            DATABASE: portaldb
+            FRONTEND: http://localhost:4200
+        ports:
+            - 5100:5100
+        depends_on:
+            - auth-api
+
+    # Portal Angular Frontend
+    portal-frontend:
+        container_name: portal-ui
+        image: gitlabregistry-zdmp.platform.zdmp.eu/enterprise-tier/t6.4-portal/front:1.2.30
+        environment:
+            API_ENDPOINT: http://localhost:5100
+        ports:
+            - 4200:80
+        depends_on:
+            - portal-api
